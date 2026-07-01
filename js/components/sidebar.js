@@ -81,6 +81,10 @@ export function mountSidebar(route, navigate) {
   document.body.insertBefore(sidebar, document.getElementById('app'));
 }
 
+export function unmountSidebar() {
+  document.querySelector('.sidebar')?.remove();
+}
+
 /** @param {string} s */
 function escapeHtml(s) {
   const div = document.createElement('div');

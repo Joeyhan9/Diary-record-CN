@@ -2,7 +2,7 @@ import { CATEGORY_LABELS } from '../types.js';
 import { getEntryById, updateEntry, deleteEntry, getAllTags } from '../storage.js';
 import { renderStars } from '../components/stars.js';
 import { renderTagEditor } from '../components/tags.js';
-import { renderImageGallery } from '../components/images.js';
+import { renderContentEditor } from '../components/content-editor.js';
 
 /**
  * @param {HTMLElement} app
@@ -34,8 +34,7 @@ export function renderDocument(app, id, navigate) {
         <div class="rating-label">评分（1-5 星）</div>
         <div id="stars-root"></div>
       </div>
-      <textarea class="doc-content-input" id="content" placeholder="写下今天的记录…"></textarea>
-      <div id="images-root"></div>
+      <div id="content-root"></div>
       <div class="doc-meta-bar">
         <span>创建于 ${formatCreated(entry.createdAt)}</span>
         <span class="save-indicator" id="save-indicator">已保存</span>
@@ -45,16 +44,29 @@ export function renderDocument(app, id, navigate) {
   `;
 
   const titleEl = /** @type {HTMLInputElement} */ (app.querySelector('#title'));
-  const contentEl = /** @type {HTMLTextAreaElement} */ (app.querySelector('#content'));
   const indicator = app.querySelector('#save-indicator');
   const starsRoot = app.querySelector('#stars-root');
   const tagsRoot = app.querySelector('#tags-root');
-  const imagesRoot = app.querySelector('#images-root');
+  const contentRoot = app.querySelector('#content-root');
 
   titleEl.value = entry.title;
-  contentEl.value = entry.content;
 
   let currentRating = entry.rating;
+  let contentValue = entry.content;
+
+  const contentEditor = renderContentEditor({
+    content: entry.content,
+    images: currentImages,
+    onContentChange: (v) => {
+      contentValue = v;
+      persist();
+    },
+    onImagesChange: (images) => {
+      currentImages = images;
+      persist();
+    },
+  });
+  contentRoot?.appendChild(contentEditor.wrapper);
 
   if (tagsRoot) {
     tagsRoot.appendChild(
@@ -62,15 +74,6 @@ export function renderDocument(app, id, navigate) {
         currentTags = tags;
         persist();
       }, getAllTags())
-    );
-  }
-
-  if (imagesRoot) {
-    imagesRoot.appendChild(
-      renderImageGallery(currentImages, (images) => {
-        currentImages = images;
-        persist();
-      })
     );
   }
 
@@ -97,7 +100,7 @@ export function renderDocument(app, id, navigate) {
     updateEntry({
       ...entry,
       title: titleEl.value,
-      content: contentEl.value,
+      content: contentValue,
       rating: currentRating,
       tags: currentTags,
       images: currentImages,
@@ -110,7 +113,6 @@ export function renderDocument(app, id, navigate) {
   }
 
   titleEl.addEventListener('input', persist);
-  contentEl.addEventListener('input', persist);
 
   app.querySelector('#back-btn')?.addEventListener('click', () => {
     navigate(`/day/${entry.date}`);

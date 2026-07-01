@@ -1,4 +1,6 @@
-import { getTagColor, normalizeTag } from '../types.js';
+import { getTagColor, normalizeTag, TAG_COLORS } from '../types.js';
+
+const PRESET_TAG_EXAMPLES = Object.keys(TAG_COLORS).filter((t) => t !== '党建');
 
 /**
  * @param {string[]} tags
@@ -44,7 +46,7 @@ export function renderTagEditor(tags, onChange, suggestions = []) {
 
   function render() {
     container.innerHTML = `
-      <div class="tag-editor-label">标签（如 #党建 #面试 #运动，回车添加）</div>
+      <div class="tag-editor-label">标签（如 ${PRESET_TAG_EXAMPLES.slice(0, 3).join('、')}，回车添加）</div>
       <div class="tag-editor-chips" id="tag-chips"></div>
       <input class="tag-editor-input" id="tag-input" placeholder="输入标签后按回车…" list="tag-suggestions" />
       <datalist id="tag-suggestions">
