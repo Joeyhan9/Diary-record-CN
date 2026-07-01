@@ -4,7 +4,6 @@ import { renderTimeline } from '../components/timeline.js';
 import { renderCategoryCalendar } from '../components/calendar.js';
 import { renderSearchBar } from '../components/search-bar.js';
 import { renderExportMenu } from '../components/export.js';
-import { renderDocCard } from '../components/stars.js';
 
 /**
  * @param {HTMLElement} app
@@ -21,17 +20,17 @@ export function renderHome(app, navigate) {
         </div>
       </header>
 
-      <div class="category-sections">
+      <div class="category-sections category-sections--horizontal">
         ${CATEGORIES.map(
           (cat) => `
-          <section class="category-section" id="section-${cat}">
+          <section class="category-section category-section--compact" id="section-${cat}">
             <button type="button" class="category-section-title" data-category="${cat}">
               <span class="category-section-dot" style="background:${CATEGORY_COLORS[cat]}"></span>
               <span>${CATEGORY_LABELS[cat]}</span>
               <span class="category-section-arrow">→</span>
             </button>
             <div class="category-section-calendar" id="calendar-${cat}"></div>
-            <div class="category-section-entries" id="entries-${cat}"></div>
+            <div class="category-section-summary" id="summary-${cat}"></div>
           </section>`
         ).join('')}
       </div>
@@ -58,28 +57,18 @@ export function renderHome(app, navigate) {
 
   CATEGORIES.forEach((cat) => {
     const calRoot = app.querySelector(`#calendar-${cat}`);
-    if (calRoot) calRoot.appendChild(renderCategoryCalendar(cat));
+    if (calRoot) calRoot.appendChild(renderCategoryCalendar(cat, { days: 14, compact: true }));
 
-    const entriesRoot = app.querySelector(`#entries-${cat}`);
-    const entries = getEntriesByCategory(cat).slice(0, 2);
-    if (entriesRoot) {
-      if (entries.length === 0) {
-        entriesRoot.innerHTML = `<p class="category-section-empty">暂无记录</p>`;
-      } else {
-        entries.forEach((entry) => {
-          entriesRoot.appendChild(
-            renderDocCard(entry, () => navigate(`/document/${entry.id}`))
-          );
-        });
-        if (getEntriesByCategory(cat).length > 2) {
-          const more = document.createElement('button');
-          more.type = 'button';
-          more.className = 'view-all-btn';
-          more.textContent = `查看全部 ${CATEGORY_LABELS[cat]} 记录 →`;
-          more.addEventListener('click', () => navigate(`/category/${cat}`));
-          entriesRoot.appendChild(more);
-        }
-      }
+    const summaryRoot = app.querySelector(`#summary-${cat}`);
+    const count = getEntriesByCategory(cat).length;
+    if (summaryRoot) {
+      summaryRoot.innerHTML =
+        count === 0
+          ? `<p class="category-section-empty">暂无记录</p>`
+          : `<button type="button" class="view-all-btn view-all-btn--compact">${count} 篇记录 →</button>`;
+      summaryRoot.querySelector('.view-all-btn')?.addEventListener('click', () => {
+        navigate(`/category/${cat}`);
+      });
     }
   });
 

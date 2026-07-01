@@ -2,6 +2,7 @@ import { CATEGORY_LABELS } from '../types.js';
 import { getEntryById, updateEntry, deleteEntry, getAllTags } from '../storage.js';
 import { renderStars } from '../components/stars.js';
 import { renderTagEditor } from '../components/tags.js';
+import { renderImageGallery } from '../components/images.js';
 
 /**
  * @param {HTMLElement} app
@@ -22,6 +23,7 @@ export function renderDocument(app, id, navigate) {
   const categoryLabel = CATEGORY_LABELS[entry.category];
   let saveTimer = null;
   let currentTags = [...(entry.tags || [])];
+  let currentImages = [...(entry.images || [])];
 
   app.innerHTML = `
     <button class="back-btn" id="back-btn">← ${categoryLabel}</button>
@@ -33,6 +35,7 @@ export function renderDocument(app, id, navigate) {
         <div id="stars-root"></div>
       </div>
       <textarea class="doc-content-input" id="content" placeholder="写下今天的记录…"></textarea>
+      <div id="images-root"></div>
       <div class="doc-meta-bar">
         <span>创建于 ${formatCreated(entry.createdAt)}</span>
         <span class="save-indicator" id="save-indicator">已保存</span>
@@ -46,6 +49,7 @@ export function renderDocument(app, id, navigate) {
   const indicator = app.querySelector('#save-indicator');
   const starsRoot = app.querySelector('#stars-root');
   const tagsRoot = app.querySelector('#tags-root');
+  const imagesRoot = app.querySelector('#images-root');
 
   titleEl.value = entry.title;
   contentEl.value = entry.content;
@@ -58,6 +62,15 @@ export function renderDocument(app, id, navigate) {
         currentTags = tags;
         persist();
       }, getAllTags())
+    );
+  }
+
+  if (imagesRoot) {
+    imagesRoot.appendChild(
+      renderImageGallery(currentImages, (images) => {
+        currentImages = images;
+        persist();
+      })
     );
   }
 
@@ -87,6 +100,7 @@ export function renderDocument(app, id, navigate) {
       content: contentEl.value,
       rating: currentRating,
       tags: currentTags,
+      images: currentImages,
     });
     if (indicator) {
       indicator.classList.add('visible');
@@ -99,7 +113,7 @@ export function renderDocument(app, id, navigate) {
   contentEl.addEventListener('input', persist);
 
   app.querySelector('#back-btn')?.addEventListener('click', () => {
-    navigate(`/category/${entry.category}`);
+    navigate(`/day/${entry.date}`);
   });
 
   app.querySelector('#delete-btn')?.addEventListener('click', () => {
