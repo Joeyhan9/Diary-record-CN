@@ -1,6 +1,6 @@
 /** @typedef {'work' | 'study' | 'life' | 'healthy'} Category */
 
-/** @typedef {{ id: string, category: Category, title: string, rating: number, content: string, date: string, createdAt: string, tags: string[] }} DiaryEntry */
+/** @typedef {{ id: string, category: Category, title: string, rating: number, content: string, date: string, createdAt: string, tags: string[], images: string[] }} DiaryEntry */
 
 export const CATEGORIES = /** @type {const} */ ([
   'work',

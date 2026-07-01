@@ -3,11 +3,14 @@ import { getDailyTags, formatDate } from '../storage.js';
 
 /**
  * @param {import('../types.js').Category} category
- * @param {number} [days]
+ * @param {{ days?: number, compact?: boolean }} [options]
  */
-export function renderCategoryCalendar(category, days = 28) {
+export function renderCategoryCalendar(category, options = {}) {
+  const { days = 28, compact = false } =
+    typeof options === 'number' ? { days: options } : options;
+
   const container = document.createElement('div');
-  container.className = 'mini-calendar';
+  container.className = compact ? 'mini-calendar mini-calendar--compact' : 'mini-calendar';
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

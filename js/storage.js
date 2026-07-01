@@ -7,6 +7,7 @@ function migrateEntry(entry) {
   return {
     ...entry,
     tags: Array.isArray(entry.tags) ? entry.tags.map(normalizeTag).filter(Boolean) : [],
+    images: Array.isArray(entry.images) ? entry.images : [],
   };
 }
 
@@ -26,6 +27,28 @@ export function loadEntries() {
 /** @param {import('./types.js').DiaryEntry[]} entries */
 export function saveEntries(entries) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+/** @returns {{ date: string, entries: import('./types.js').DiaryEntry[] }[]} */
+export function getEntriesGroupedByDate() {
+  const map = new Map();
+  loadEntries().forEach((entry) => {
+    if (!map.has(entry.date)) map.set(entry.date, []);
+    map.get(entry.date).push(entry);
+  });
+  return [...map.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, entries]) => ({
+      date,
+      entries: entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    }));
+}
+
+/** @param {string} date */
+export function getEntriesByDate(date) {
+  return loadEntries()
+    .filter((e) => e.date === date)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /** @param {import('./types.js').Category} category */
@@ -129,6 +152,7 @@ export function createEntry(category, date) {
     date: date || todayStr(),
     createdAt: new Date().toISOString(),
     tags: [],
+    images: [],
   };
   const entries = loadEntries();
   entries.push(entry);
@@ -144,6 +168,7 @@ export function updateEntry(entry) {
     entries[idx] = {
       ...entry,
       tags: (entry.tags || []).map(normalizeTag).filter(Boolean),
+      images: Array.isArray(entry.images) ? entry.images : [],
     };
     saveEntries(entries);
   }
