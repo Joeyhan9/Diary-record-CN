@@ -1,4 +1,10 @@
+import { CATEGORIES, CATEGORY_COLORS, CATEGORY_LABELS } from '../types.js';
+import { getEntriesByCategory } from '../storage.js';
 import { renderTimeline } from '../components/timeline.js';
+import { renderCategoryCalendar } from '../components/calendar.js';
+import { renderSearchBar } from '../components/search-bar.js';
+import { renderExportMenu } from '../components/export.js';
+import { renderDocCard } from '../components/stars.js';
 
 /**
  * @param {HTMLElement} app
@@ -7,15 +13,82 @@ import { renderTimeline } from '../components/timeline.js';
 export function renderHome(app, navigate) {
   app.innerHTML = `
     <div class="home-layout">
-      <div class="home-intro">
+      <header class="home-header">
         <h1>生活记录</h1>
-        <p>点击下方线条，进入对应单元写日记</p>
+        <div class="home-toolbar">
+          <div id="search-root" class="home-search"></div>
+          <div id="export-root"></div>
+        </div>
+      </header>
+
+      <div class="category-sections">
+        ${CATEGORIES.map(
+          (cat) => `
+          <section class="category-section" id="section-${cat}">
+            <button type="button" class="category-section-title" data-category="${cat}">
+              <span class="category-section-dot" style="background:${CATEGORY_COLORS[cat]}"></span>
+              <span>${CATEGORY_LABELS[cat]}</span>
+              <span class="category-section-arrow">→</span>
+            </button>
+            <div class="category-section-calendar" id="calendar-${cat}"></div>
+            <div class="category-section-entries" id="entries-${cat}"></div>
+          </section>`
+        ).join('')}
       </div>
+
       <section class="timeline-section">
+        <h2 class="timeline-heading">14 日趋势</h2>
+        <p class="timeline-subtitle">点击下方线条，进入对应单元</p>
         <div id="timeline-root"></div>
       </section>
     </div>
   `;
+
+  const exportRoot = app.querySelector('#export-root');
+  if (exportRoot) renderExportMenu(exportRoot);
+
+  const searchRoot = app.querySelector('#search-root');
+  if (searchRoot) {
+    searchRoot.appendChild(
+      renderSearchBar((q) => {
+        if (q.trim()) navigate(`/search?q=${encodeURIComponent(q.trim())}`);
+      })
+    );
+  }
+
+  CATEGORIES.forEach((cat) => {
+    const calRoot = app.querySelector(`#calendar-${cat}`);
+    if (calRoot) calRoot.appendChild(renderCategoryCalendar(cat));
+
+    const entriesRoot = app.querySelector(`#entries-${cat}`);
+    const entries = getEntriesByCategory(cat).slice(0, 2);
+    if (entriesRoot) {
+      if (entries.length === 0) {
+        entriesRoot.innerHTML = `<p class="category-section-empty">暂无记录</p>`;
+      } else {
+        entries.forEach((entry) => {
+          entriesRoot.appendChild(
+            renderDocCard(entry, () => navigate(`/document/${entry.id}`))
+          );
+        });
+        if (getEntriesByCategory(cat).length > 2) {
+          const more = document.createElement('button');
+          more.type = 'button';
+          more.className = 'view-all-btn';
+          more.textContent = `查看全部 ${CATEGORY_LABELS[cat]} 记录 →`;
+          more.addEventListener('click', () => navigate(`/category/${cat}`));
+          entriesRoot.appendChild(more);
+        }
+      }
+    }
+  });
+
+  app.querySelectorAll('.category-section-title').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const cat = /** @type {import('../types.js').Category} */ (btn.dataset.category);
+      navigate(`/category/${cat}`);
+    });
+  });
 
   const root = app.querySelector('#timeline-root');
   if (root) {

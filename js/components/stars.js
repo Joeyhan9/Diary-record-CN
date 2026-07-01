@@ -1,3 +1,5 @@
+import { renderTagChips } from './tags.js';
+
 /**
  * @param {number} rating
  * @param {(n: number) => void} [onChange]
@@ -39,8 +41,17 @@ export function renderDocCard(entry, onClick) {
       <span class="stars-inline">${'★'.repeat(entry.rating)}${'☆'.repeat(5 - entry.rating)}</span>
       <span>${formatDate(entry.date)}</span>
     </div>
+    <div class="doc-card-tags" id="card-tags"></div>
     <div class="doc-card-preview">${escapeHtml(preview(entry.content))}</div>
   `;
+
+  const tagsRoot = card.querySelector('#card-tags');
+  if (tagsRoot && entry.tags?.length) {
+    tagsRoot.appendChild(renderTagChips(entry.tags, { size: 'sm', max: 4 }));
+  } else if (tagsRoot) {
+    tagsRoot.remove();
+  }
+
   card.addEventListener('click', onClick);
   return card;
 }
