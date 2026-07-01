@@ -1,6 +1,7 @@
 import { CATEGORY_LABELS } from '../types.js';
-import { getEntryById, updateEntry, deleteEntry } from '../storage.js';
+import { getEntryById, updateEntry, deleteEntry, getAllTags } from '../storage.js';
 import { renderStars } from '../components/stars.js';
+import { renderTagEditor } from '../components/tags.js';
 
 /**
  * @param {HTMLElement} app
@@ -20,11 +21,13 @@ export function renderDocument(app, id, navigate) {
 
   const categoryLabel = CATEGORY_LABELS[entry.category];
   let saveTimer = null;
+  let currentTags = [...(entry.tags || [])];
 
   app.innerHTML = `
     <button class="back-btn" id="back-btn">← ${categoryLabel}</button>
     <div class="doc-editor">
       <input class="doc-title-input" id="title" placeholder="文档标题" value="" />
+      <div id="tags-root"></div>
       <div class="rating-section">
         <div class="rating-label">评分（1-5 星）</div>
         <div id="stars-root"></div>
@@ -42,11 +45,21 @@ export function renderDocument(app, id, navigate) {
   const contentEl = /** @type {HTMLTextAreaElement} */ (app.querySelector('#content'));
   const indicator = app.querySelector('#save-indicator');
   const starsRoot = app.querySelector('#stars-root');
+  const tagsRoot = app.querySelector('#tags-root');
 
   titleEl.value = entry.title;
   contentEl.value = entry.content;
 
   let currentRating = entry.rating;
+
+  if (tagsRoot) {
+    tagsRoot.appendChild(
+      renderTagEditor(currentTags, (tags) => {
+        currentTags = tags;
+        persist();
+      }, getAllTags())
+    );
+  }
 
   const starsEl = renderStars(currentRating, (n) => {
     currentRating = n;
@@ -73,6 +86,7 @@ export function renderDocument(app, id, navigate) {
       title: titleEl.value,
       content: contentEl.value,
       rating: currentRating,
+      tags: currentTags,
     });
     if (indicator) {
       indicator.classList.add('visible');

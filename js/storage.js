@@ -1,6 +1,14 @@
-import { CATEGORIES } from './types.js';
+import { CATEGORIES, normalizeTag } from './types.js';
 
 const STORAGE_KEY = 'diary-timeline-entries';
+
+/** @param {*} entry */
+function migrateEntry(entry) {
+  return {
+    ...entry,
+    tags: Array.isArray(entry.tags) ? entry.tags.map(normalizeTag).filter(Boolean) : [],
+  };
+}
 
 /** @returns {import('./types.js').DiaryEntry[]} */
 export function loadEntries() {
@@ -8,7 +16,8 @@ export function loadEntries() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(migrateEntry);
   } catch {
     return [];
   }
@@ -39,6 +48,35 @@ export function getDailyRating(date, category) {
   if (entries.length === 0) return 0;
   const sum = entries.reduce((acc, e) => acc + (e.rating || 0), 0);
   return Math.round(sum / entries.length);
+}
+
+/** @param {string} date @param {import('./types.js').Category} category */
+export function getDailyTags(date, category) {
+  const tags = new Set();
+  loadEntries()
+    .filter((e) => e.date === date && e.category === category)
+    .forEach((e) => e.tags.forEach((t) => tags.add(t)));
+  return [...tags];
+}
+
+/** @param {string} query */
+export function searchEntries(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return loadEntries()
+    .filter(
+      (e) =>
+        (e.title || '').toLowerCase().includes(q) ||
+        (e.content || '').toLowerCase().includes(q)
+    )
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+}
+
+/** @returns {string[]} */
+export function getAllTags() {
+  const tags = new Set();
+  loadEntries().forEach((e) => e.tags.forEach((t) => tags.add(t)));
+  return [...tags].sort((a, b) => a.localeCompare(b, 'zh-CN'));
 }
 
 /** @param {number} days 从当日开始向前排期，共 days 天（含今天） */
@@ -90,6 +128,7 @@ export function createEntry(category, date) {
     content: '',
     date: date || todayStr(),
     createdAt: new Date().toISOString(),
+    tags: [],
   };
   const entries = loadEntries();
   entries.push(entry);
@@ -102,7 +141,10 @@ export function updateEntry(entry) {
   const entries = loadEntries();
   const idx = entries.findIndex((e) => e.id === entry.id);
   if (idx >= 0) {
-    entries[idx] = { ...entry };
+    entries[idx] = {
+      ...entry,
+      tags: (entry.tags || []).map(normalizeTag).filter(Boolean),
+    };
     saveEntries(entries);
   }
 }
