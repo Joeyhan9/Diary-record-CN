@@ -2,19 +2,19 @@ const MAX_IMAGES = 6;
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
 /**
- * @param {string[]} images
- * @param {(images: string[]) => void} onChange
+ * @param {{ content: string, images: string[], onContentChange: (v: string) => void, onImagesChange: (v: string[]) => void }} opts
  */
-export function renderImageGallery(images, onChange) {
-  const section = document.createElement('div');
-  section.className = 'image-gallery';
+export function renderContentEditor({ content, images, onContentChange, onImagesChange }) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'doc-content-editor';
 
-  const label = document.createElement('div');
-  label.className = 'image-gallery-label';
-  label.textContent = '图片';
+  const textarea = document.createElement('textarea');
+  textarea.className = 'doc-content-input';
+  textarea.placeholder = '写下今天的记录…';
+  textarea.value = content;
 
-  const grid = document.createElement('div');
-  grid.className = 'image-gallery-grid';
+  const imagesRow = document.createElement('div');
+  imagesRow.className = 'doc-content-images';
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
@@ -22,32 +22,36 @@ export function renderImageGallery(images, onChange) {
   fileInput.multiple = true;
   fileInput.hidden = true;
 
-  function render() {
-    grid.innerHTML = '';
+  let currentImages = [...images];
 
-    images.forEach((src, index) => {
+  function renderImages() {
+    imagesRow.innerHTML = '';
+
+    currentImages.forEach((src, index) => {
       const item = document.createElement('div');
-      item.className = 'image-gallery-item';
+      item.className = 'doc-content-image-item';
       item.innerHTML = `
         <img src="${src}" alt="图片 ${index + 1}" />
-        <button type="button" class="image-gallery-remove" data-index="${index}" aria-label="删除图片">×</button>
+        <button type="button" class="doc-content-image-remove" aria-label="删除图片">×</button>
       `;
       item.querySelector('img')?.addEventListener('click', () => showLightbox(src));
-      item.querySelector('.image-gallery-remove')?.addEventListener('click', (e) => {
+      item.querySelector('.doc-content-image-remove')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        const next = images.filter((_, i) => i !== index);
-        onChange(next);
+        currentImages = currentImages.filter((_, i) => i !== index);
+        onImagesChange(currentImages);
+        renderImages();
       });
-      grid.appendChild(item);
+      imagesRow.appendChild(item);
     });
 
-    if (images.length < MAX_IMAGES) {
+    if (currentImages.length < MAX_IMAGES) {
       const addBtn = document.createElement('button');
       addBtn.type = 'button';
-      addBtn.className = 'image-gallery-add';
-      addBtn.innerHTML = '<span>+</span><span>添加图片</span>';
+      addBtn.className = 'doc-content-add-btn';
+      addBtn.setAttribute('aria-label', '添加图片');
+      addBtn.textContent = '+';
       addBtn.addEventListener('click', () => fileInput.click());
-      grid.appendChild(addBtn);
+      imagesRow.appendChild(addBtn);
     }
   }
 
@@ -56,9 +60,9 @@ export function renderImageGallery(images, onChange) {
     fileInput.value = '';
     if (!files.length) return;
 
-    const remaining = MAX_IMAGES - images.length;
+    const remaining = MAX_IMAGES - currentImages.length;
     const toAdd = files.slice(0, remaining);
-    const newImages = [...images];
+    const next = [...currentImages];
 
     for (const file of toAdd) {
       if (!file.type.startsWith('image/')) continue;
@@ -67,29 +71,27 @@ export function renderImageGallery(images, onChange) {
         continue;
       }
       try {
-        const dataUrl = await readFileAsDataUrl(file);
-        newImages.push(dataUrl);
+        next.push(await readFileAsDataUrl(file));
       } catch {
         alert(`无法读取图片「${file.name}」`);
       }
     }
 
-    if (newImages.length !== images.length) onChange(newImages);
+    if (next.length !== currentImages.length) {
+      currentImages = next;
+      onImagesChange(currentImages);
+      renderImages();
+    }
   });
 
-  section.appendChild(label);
-  section.appendChild(grid);
-  section.appendChild(fileInput);
+  textarea.addEventListener('input', () => onContentChange(textarea.value));
 
-  const originalOnChange = onChange;
-  onChange = (next) => {
-    images = next;
-    render();
-    originalOnChange(next);
-  };
+  wrapper.appendChild(textarea);
+  wrapper.appendChild(imagesRow);
+  wrapper.appendChild(fileInput);
+  renderImages();
 
-  render();
-  return section;
+  return { wrapper, textarea, setImages: (next) => { currentImages = next; renderImages(); } };
 }
 
 /** @param {File} file */
