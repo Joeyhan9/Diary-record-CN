@@ -1,6 +1,44 @@
 import { CATEGORIES, normalizeTag } from './types.js';
 
-const STORAGE_KEY = 'diary-timeline-entries';
+const STORAGE_KEY_PREFIX = 'diary-timeline-entries';
+const GUEST_STORAGE_KEY = `${STORAGE_KEY_PREFIX}-guest`;
+
+/** @type {string | null} */
+let currentUserId = null;
+
+/** @param {string | null | undefined} userId */
+export function setStorageUser(userId) {
+  const nextUserId = userId ?? null;
+  if (nextUserId && nextUserId !== currentUserId) {
+    migrateLegacyEntries(nextUserId);
+  }
+  currentUserId = nextUserId;
+}
+
+/** @param {string} userId */
+function migrateLegacyEntries(userId) {
+  const legacyKey = STORAGE_KEY_PREFIX;
+  const userKey = `${STORAGE_KEY_PREFIX}-${userId}`;
+  const legacy = localStorage.getItem(legacyKey);
+  if (legacy && !localStorage.getItem(userKey)) {
+    localStorage.setItem(userKey, legacy);
+    localStorage.removeItem(legacyKey);
+  }
+}
+
+/** @returns {string | null} */
+export function getStorageUserId() {
+  return currentUserId;
+}
+
+function getStorageKey() {
+  return currentUserId ? `${STORAGE_KEY_PREFIX}-${currentUserId}` : GUEST_STORAGE_KEY;
+}
+
+/** @returns {boolean} */
+export function hasStorageUser() {
+  return Boolean(currentUserId);
+}
 
 /** @param {*} entry */
 function migrateEntry(entry) {
@@ -14,7 +52,7 @@ function migrateEntry(entry) {
 /** @returns {import('./types.js').DiaryEntry[]} */
 export function loadEntries() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -25,8 +63,11 @@ export function loadEntries() {
 }
 
 /** @param {import('./types.js').DiaryEntry[]} entries */
+/** @param {import('./types.js').DiaryEntry[]} entries */
 export function saveEntries(entries) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  if (!currentUserId) return false;
+  localStorage.setItem(getStorageKey(), JSON.stringify(entries));
+  return true;
 }
 
 /** @returns {{ date: string, entries: import('./types.js').DiaryEntry[] }[]} */
@@ -143,6 +184,7 @@ export function formatDisplayDate(dateStr) {
 
 /** @param {import('./types.js').Category} category @param {string} [date] */
 export function createEntry(category, date) {
+  if (!currentUserId) return null;
   const entry = {
     id: crypto.randomUUID(),
     category,
@@ -162,6 +204,7 @@ export function createEntry(category, date) {
 
 /** @param {import('./types.js').DiaryEntry} entry */
 export function updateEntry(entry) {
+  if (!currentUserId) return false;
   const entries = loadEntries();
   const idx = entries.findIndex((e) => e.id === entry.id);
   if (idx >= 0) {
@@ -170,13 +213,15 @@ export function updateEntry(entry) {
       tags: (entry.tags || []).map(normalizeTag).filter(Boolean),
       images: Array.isArray(entry.images) ? entry.images : [],
     };
-    saveEntries(entries);
+    return saveEntries(entries);
   }
+  return false;
 }
 
 /** @param {string} id */
 export function deleteEntry(id) {
-  saveEntries(loadEntries().filter((e) => e.id !== id));
+  if (!currentUserId) return false;
+  return saveEntries(loadEntries().filter((e) => e.id !== id));
 }
 
 /** @param {string} text @param {number} lines */

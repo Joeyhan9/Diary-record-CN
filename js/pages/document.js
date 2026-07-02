@@ -3,6 +3,8 @@ import { getEntryById, updateEntry, deleteEntry, getAllTags } from '../storage.j
 import { renderStars } from '../components/stars.js';
 import { renderTagEditor } from '../components/tags.js';
 import { renderContentEditor } from '../components/content-editor.js';
+import { canSaveData, requireAuthForSave } from '../auth/guards.js';
+import { showLoginPrompt } from '../components/login-prompt.js';
 
 /**
  * @param {HTMLElement} app
@@ -25,9 +27,12 @@ export function renderDocument(app, id, navigate) {
   let currentTags = [...(entry.tags || [])];
   let currentImages = [...(entry.images || [])];
 
+  const readOnly = !canSaveData();
+
   app.innerHTML = `
     <button class="back-btn" id="back-btn">← ${categoryLabel}</button>
-    <div class="doc-editor">
+    ${readOnly ? '<div id="login-prompt-root"></div>' : ''}
+    <div class="doc-editor${readOnly ? ' doc-editor--readonly' : ''}">
       <input class="doc-title-input" id="title" placeholder="文档标题" value="" />
       <div id="tags-root"></div>
       <div class="rating-section">
@@ -39,9 +44,14 @@ export function renderDocument(app, id, navigate) {
         <span>创建于 ${formatCreated(entry.createdAt)}</span>
         <span class="save-indicator" id="save-indicator">已保存</span>
       </div>
-      <button class="delete-btn" id="delete-btn">删除文档</button>
+      <button class="delete-btn" id="delete-btn"${readOnly ? ' hidden' : ''}>删除文档</button>
     </div>
   `;
+
+  if (readOnly) {
+    const promptRoot = app.querySelector('#login-prompt-root');
+    if (promptRoot) showLoginPrompt(promptRoot, navigate, '登录后即可编辑和保存文档');
+  }
 
   const titleEl = /** @type {HTMLInputElement} */ (app.querySelector('#title'));
   const indicator = app.querySelector('#save-indicator');
@@ -50,6 +60,7 @@ export function renderDocument(app, id, navigate) {
   const contentRoot = app.querySelector('#content-root');
 
   titleEl.value = entry.title;
+  if (readOnly) titleEl.readOnly = true;
 
   let currentRating = entry.rating;
   let contentValue = entry.content;
@@ -57,6 +68,7 @@ export function renderDocument(app, id, navigate) {
   const contentEditor = renderContentEditor({
     content: entry.content,
     images: currentImages,
+    readOnly,
     onContentChange: (v) => {
       contentValue = v;
       persist();
@@ -73,7 +85,7 @@ export function renderDocument(app, id, navigate) {
       renderTagEditor(currentTags, (tags) => {
         currentTags = tags;
         persist();
-      }, getAllTags())
+      }, getAllTags(), readOnly)
     );
   }
 
@@ -81,7 +93,7 @@ export function renderDocument(app, id, navigate) {
     currentRating = n;
     refreshStars();
     persist();
-  });
+  }, readOnly);
   starsRoot?.appendChild(starsEl);
 
   function refreshStars() {
@@ -92,12 +104,16 @@ export function renderDocument(app, id, navigate) {
         currentRating = n;
         refreshStars();
         persist();
-      })
+      }, readOnly)
     );
   }
 
   function persist() {
-    updateEntry({
+    if (!canSaveData()) {
+      showLoginPrompt(app, navigate, '登录后即可保存修改');
+      return;
+    }
+    const saved = updateEntry({
       ...entry,
       title: titleEl.value,
       content: contentValue,
@@ -105,6 +121,7 @@ export function renderDocument(app, id, navigate) {
       tags: currentTags,
       images: currentImages,
     });
+    if (!saved) return;
     if (indicator) {
       indicator.classList.add('visible');
       clearTimeout(saveTimer);
@@ -112,13 +129,17 @@ export function renderDocument(app, id, navigate) {
     }
   }
 
-  titleEl.addEventListener('input', persist);
+  titleEl.addEventListener('input', () => {
+    if (readOnly) return;
+    persist();
+  });
 
   app.querySelector('#back-btn')?.addEventListener('click', () => {
     navigate(`/day/${entry.date}`);
   });
 
   app.querySelector('#delete-btn')?.addEventListener('click', () => {
+    if (!requireAuthForSave(navigate, `/document/${entry.id}`)) return;
     if (confirm('确定删除这篇文档吗？')) {
       deleteEntry(entry.id);
       navigate(`/category/${entry.category}`);

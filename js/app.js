@@ -4,11 +4,18 @@ import { renderCategory } from './pages/category.js';
 import { renderDocument } from './pages/document.js';
 import { renderSearch } from './pages/search.js';
 import { renderDay } from './pages/day.js';
+import { renderLogin } from './pages/login.js';
+import { renderRegister } from './pages/register.js';
 import { mountBottomNav } from './components/bottom-nav.js';
 import { mountSidebar, unmountSidebar } from './components/sidebar.js';
 import { getEntryById } from './storage.js';
+import { initAuth } from './auth/auth-service.js';
+import { subscribeAuth } from './auth/auth-state.js';
 
 const app = document.getElementById('app');
+
+/** @type {boolean} */
+let authReady = false;
 
 function navigate(path) {
   window.location.hash = path;
@@ -30,14 +37,29 @@ function setSidebarVisible(show) {
 }
 
 function render() {
-  if (!app) return;
+  if (!app || !authReady) return;
 
   const hash = getRoute();
   const [pathPart, queryPart] = hash.split('?');
   const parts = pathPart.split('/').filter(Boolean);
   const params = new URLSearchParams(queryPart || '');
+  const redirectTo = params.get('redirect') || '/';
 
   document.body.classList.add('has-bottom-nav');
+
+  if (parts[0] === 'login') {
+    setSidebarVisible(false);
+    renderLogin(app, navigate, redirectTo);
+    mountBottomNav('/', navigate);
+    return;
+  }
+
+  if (parts[0] === 'register') {
+    setSidebarVisible(false);
+    renderRegister(app, navigate, redirectTo);
+    mountBottomNav('/', navigate);
+    return;
+  }
 
   if (parts.length === 0) {
     renderHome(app, navigate);
@@ -79,6 +101,16 @@ function render() {
   mountBottomNav('/', navigate);
 }
 
+async function bootstrap() {
+  if (app) {
+    app.innerHTML = '<div class="app-loading">加载中…</div>';
+  }
+  await initAuth();
+  authReady = true;
+  subscribeAuth(() => render());
+  render();
+}
+
 window.addEventListener('hashchange', render);
 window.addEventListener('resize', () => {
   const hash = getRoute();
@@ -90,4 +122,4 @@ if (window.matchMedia('(max-width: 640px)').matches) {
   document.body.classList.add('sidebar-collapsed');
 }
 
-render();
+bootstrap();

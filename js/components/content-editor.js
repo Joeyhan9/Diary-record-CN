@@ -2,9 +2,9 @@ const MAX_IMAGES = 6;
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
 /**
- * @param {{ content: string, images: string[], onContentChange: (v: string) => void, onImagesChange: (v: string[]) => void }} opts
+ * @param {{ content: string, images: string[], readOnly?: boolean, onContentChange: (v: string) => void, onImagesChange: (v: string[]) => void }} opts
  */
-export function renderContentEditor({ content, images, onContentChange, onImagesChange }) {
+export function renderContentEditor({ content, images, readOnly = false, onContentChange, onImagesChange }) {
   const wrapper = document.createElement('div');
   wrapper.className = 'doc-content-editor';
 
@@ -12,6 +12,7 @@ export function renderContentEditor({ content, images, onContentChange, onImages
   textarea.className = 'doc-content-input';
   textarea.placeholder = '写下今天的记录…';
   textarea.value = content;
+  if (readOnly) textarea.readOnly = true;
 
   const imagesRow = document.createElement('div');
   imagesRow.className = 'doc-content-images';
@@ -32,19 +33,21 @@ export function renderContentEditor({ content, images, onContentChange, onImages
       item.className = 'doc-content-image-item';
       item.innerHTML = `
         <img src="${src}" alt="图片 ${index + 1}" />
-        <button type="button" class="doc-content-image-remove" aria-label="删除图片">×</button>
+        ${readOnly ? '' : '<button type="button" class="doc-content-image-remove" aria-label="删除图片">×</button>'}
       `;
       item.querySelector('img')?.addEventListener('click', () => showLightbox(src));
-      item.querySelector('.doc-content-image-remove')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        currentImages = currentImages.filter((_, i) => i !== index);
-        onImagesChange(currentImages);
-        renderImages();
-      });
+      if (!readOnly) {
+        item.querySelector('.doc-content-image-remove')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          currentImages = currentImages.filter((_, i) => i !== index);
+          onImagesChange(currentImages);
+          renderImages();
+        });
+      }
       imagesRow.appendChild(item);
     });
 
-    if (currentImages.length < MAX_IMAGES) {
+    if (!readOnly && currentImages.length < MAX_IMAGES) {
       const addBtn = document.createElement('button');
       addBtn.type = 'button';
       addBtn.className = 'doc-content-add-btn';
@@ -55,36 +58,38 @@ export function renderContentEditor({ content, images, onContentChange, onImages
     }
   }
 
-  fileInput.addEventListener('change', async () => {
-    const files = [...(fileInput.files || [])];
-    fileInput.value = '';
-    if (!files.length) return;
+  if (!readOnly) {
+    fileInput.addEventListener('change', async () => {
+      const files = [...(fileInput.files || [])];
+      fileInput.value = '';
+      if (!files.length) return;
 
-    const remaining = MAX_IMAGES - currentImages.length;
-    const toAdd = files.slice(0, remaining);
-    const next = [...currentImages];
+      const remaining = MAX_IMAGES - currentImages.length;
+      const toAdd = files.slice(0, remaining);
+      const next = [...currentImages];
 
-    for (const file of toAdd) {
-      if (!file.type.startsWith('image/')) continue;
-      if (file.size > MAX_FILE_SIZE) {
-        alert(`图片「${file.name}」超过 2MB，已跳过`);
-        continue;
+      for (const file of toAdd) {
+        if (!file.type.startsWith('image/')) continue;
+        if (file.size > MAX_FILE_SIZE) {
+          alert(`图片「${file.name}」超过 2MB，已跳过`);
+          continue;
+        }
+        try {
+          next.push(await readFileAsDataUrl(file));
+        } catch {
+          alert(`无法读取图片「${file.name}」`);
+        }
       }
-      try {
-        next.push(await readFileAsDataUrl(file));
-      } catch {
-        alert(`无法读取图片「${file.name}」`);
+
+      if (next.length !== currentImages.length) {
+        currentImages = next;
+        onImagesChange(currentImages);
+        renderImages();
       }
-    }
+    });
 
-    if (next.length !== currentImages.length) {
-      currentImages = next;
-      onImagesChange(currentImages);
-      renderImages();
-    }
-  });
-
-  textarea.addEventListener('input', () => onContentChange(textarea.value));
+    textarea.addEventListener('input', () => onContentChange(textarea.value));
+  }
 
   wrapper.appendChild(textarea);
   wrapper.appendChild(imagesRow);
