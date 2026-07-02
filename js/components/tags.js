@@ -37,8 +37,9 @@ export function renderTagChips(tags, opts = {}) {
  * @param {string[]} tags
  * @param {(tags: string[]) => void} onChange
  * @param {string[]} [suggestions]
+ * @param {boolean} [readOnly]
  */
-export function renderTagEditor(tags, onChange, suggestions = []) {
+export function renderTagEditor(tags, onChange, suggestions = [], readOnly = false) {
   const container = document.createElement('div');
   container.className = 'tag-editor';
 
@@ -46,27 +47,33 @@ export function renderTagEditor(tags, onChange, suggestions = []) {
 
   function render() {
     container.innerHTML = `
-      <div class="tag-editor-label">标签（如 ${PRESET_TAG_EXAMPLES.slice(0, 3).join('、')}，回车添加）</div>
+      <div class="tag-editor-label">标签${readOnly ? '' : `（如 ${PRESET_TAG_EXAMPLES.slice(0, 3).join('、')}，回车添加）`}</div>
       <div class="tag-editor-chips" id="tag-chips"></div>
+      ${readOnly ? '' : `
       <input class="tag-editor-input" id="tag-input" placeholder="输入标签后按回车…" list="tag-suggestions" />
       <datalist id="tag-suggestions">
         ${suggestions.map((t) => `<option value="${t}">`).join('')}
       </datalist>
+      `}
     `;
 
     const chipsRoot = container.querySelector('#tag-chips');
     if (chipsRoot) {
       chipsRoot.appendChild(renderTagChips(currentTags));
-      chipsRoot.querySelectorAll('.tag-chip:not(.tag-chip--more)').forEach((chip, i) => {
-        chip.style.cursor = 'pointer';
-        chip.title = '点击移除';
-        chip.addEventListener('click', () => {
-          currentTags = currentTags.filter((_, idx) => idx !== i);
-          onChange(currentTags);
-          render();
+      if (!readOnly) {
+        chipsRoot.querySelectorAll('.tag-chip:not(.tag-chip--more)').forEach((chip, i) => {
+          chip.style.cursor = 'pointer';
+          chip.title = '点击移除';
+          chip.addEventListener('click', () => {
+            currentTags = currentTags.filter((_, idx) => idx !== i);
+            onChange(currentTags);
+            render();
+          });
         });
-      });
+      }
     }
+
+    if (readOnly) return;
 
     const input = /** @type {HTMLInputElement} */ (container.querySelector('#tag-input'));
     input?.addEventListener('keydown', (e) => {

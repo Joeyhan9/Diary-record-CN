@@ -4,6 +4,8 @@ import { renderTimeline } from '../components/timeline.js';
 import { renderCategoryCalendar } from '../components/calendar.js';
 import { renderSearchBar } from '../components/search-bar.js';
 import { renderExportMenu } from '../components/export.js';
+import { renderAuthBar } from '../components/auth-bar.js';
+import { isAuthenticated } from '../auth/auth-state.js';
 
 /**
  * @param {HTMLElement} app
@@ -13,7 +15,15 @@ export function renderHome(app, navigate) {
   app.innerHTML = `
     <div class="home-layout">
       <header class="home-header">
-        <h1>生活记录</h1>
+        <div class="home-header-top">
+          <h1>生活记录</h1>
+          <div id="auth-bar-root"></div>
+        </div>
+        ${
+          isAuthenticated()
+            ? ''
+            : `<p class="home-guest-notice">当前为浏览模式，登录后可保存记录</p>`
+        }
         <div class="home-toolbar">
           <div id="search-root" class="home-search"></div>
           <div id="export-root"></div>
@@ -45,6 +55,9 @@ export function renderHome(app, navigate) {
 
   const exportRoot = app.querySelector('#export-root');
   if (exportRoot) renderExportMenu(exportRoot);
+
+  const authBarRoot = app.querySelector('#auth-bar-root');
+  if (authBarRoot) authBarRoot.appendChild(renderAuthBar(navigate));
 
   const searchRoot = app.querySelector('#search-root');
   if (searchRoot) {

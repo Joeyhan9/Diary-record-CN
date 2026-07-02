@@ -2,6 +2,7 @@ import { CATEGORY_COLORS, CATEGORY_LABELS } from '../types.js';
 import { getEntriesByCategory, createEntry, todayStr } from '../storage.js';
 import { renderDocCard } from '../components/stars.js';
 import { renderCategoryCalendar } from '../components/calendar.js';
+import { requireAuthForSave } from '../auth/guards.js';
 
 /**
  * @param {HTMLElement} app
@@ -46,7 +47,9 @@ export function renderCategory(app, category, navigate) {
   }
 
   app.querySelector('#fab')?.addEventListener('click', () => {
+    if (!requireAuthForSave(navigate, `/category/${category}`)) return;
     const entry = createEntry(category, todayStr());
+    if (!entry) return;
     navigate(`/document/${entry.id}`);
   });
 }
